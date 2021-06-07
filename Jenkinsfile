@@ -4,7 +4,8 @@ pipeline {
     stage('Build') {
       steps {
         echo 'Building..'
-        echo "text ${text}"
+        echo "text ${env.BRANCH}"
+        echo "text ${env.PARAM2}"
       }
     }
 
