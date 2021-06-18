@@ -84,14 +84,14 @@ func TagExecCmd(repo, branch, commitHash string) error {
 	if err = CmdExec(cmdGitInit); err != nil {
 		return err
 	}
-	cmdSetRemote := fmt.Sprintf("git remote add origin https://%s:%s@github.com/%s/%s.git", username, ghToken, owner, repo)
+	cmdSetRemote := fmt.Sprintf("git remote add jenkins-cli https://%s:%s@github.com/%s/%s.git", username, ghToken, owner, repo)
 	if err = CmdExec(cmdSetRemote); err != nil {
 		return err
 	}
 
 	cmdFetch := fmt.Sprintf("git fetch --all")
 	if err = CmdExec(cmdFetch); err != nil {
-		_ = fmt.Sprintf("git remote rm origin")
+		_ = fmt.Sprintf("git remote rm jenkins-cli")
 		return err
 	}
 
@@ -120,7 +120,7 @@ func CmdExec(cmdLine string) error {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	command := exec.Command("bash", "-c", cmdLine)
+	command := exec.Command("sh", "-c", cmdLine)
 	command.Stdout = &out
 	command.Stderr = &stderr
 
