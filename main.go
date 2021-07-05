@@ -25,6 +25,9 @@ func main() {
 
 	e := echo.New()
 	e.GET("/build", build)
+	e.GET("/hello-world", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status":"up & running"})
+	})
 	e.Logger.Fatal(e.Start(":1323"))
 }
 
@@ -84,14 +87,20 @@ func TagExecCmd(repo, branch, commitHash string) error {
 	if err = CmdExec(cmdGitInit); err != nil {
 		return err
 	}
-	cmdSetRemote := fmt.Sprintf("git remote add jenkins-cli https://%s:%s@github.com/%s/%s.git", username, ghToken, owner, repo)
+	// init
+	cmdSetRmRemove := fmt.Sprintf("git remote rm origin")
+	if err = CmdExec(cmdSetRmRemove); err != nil {
+		return err
+	}
+
+	cmdSetRemote := fmt.Sprintf("git remote add origin https://%s:%s@github.com/%s/%s.git", username, ghToken, owner, repo)
 	if err = CmdExec(cmdSetRemote); err != nil {
 		return err
 	}
 
 	cmdFetch := fmt.Sprintf("git fetch --all")
 	if err = CmdExec(cmdFetch); err != nil {
-		_ = fmt.Sprintf("git remote rm jenkins-cli")
+		_ = fmt.Sprintf("git remote rm origin")
 		return err
 	}
 
@@ -120,7 +129,7 @@ func CmdExec(cmdLine string) error {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 
-	command := exec.Command("sh", "-c", cmdLine)
+	command := exec.Command("bash", "-c", cmdLine)
 	command.Stdout = &out
 	command.Stderr = &stderr
 
