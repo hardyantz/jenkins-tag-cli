@@ -38,8 +38,11 @@ func build(c echo.Context) error {
 	text := c.QueryParam("text")
 	params := strings.Split(text, " ")
 	if len(params) < 3 {
+		log.Println("insufficient params")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "insufficient params"})
 	}
+
+	log.Printf("Param accepted %s", text)
 
 	var tokenProject = map[string]string{
 		"hello-world": os.Getenv("TOKEN_HELLO_WORLD"),
@@ -52,6 +55,7 @@ func build(c echo.Context) error {
 	commitHash := params[3]
 
 	if err = TagExecCmd(repo, branch, commitHash); err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
@@ -67,16 +71,21 @@ func build(c echo.Context) error {
 
 	jenkinsResponse, err := http.Get(baseURL)
 	if err != nil {
+		log.Println(err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	defer jenkinsResponse.Body.Close()
 
 	if jenkinsResponse.StatusCode >= http.StatusInternalServerError {
 		err = fmt.Errorf("error while fetch data from server with code %d", jenkinsResponse.StatusCode)
+		log.Println(err)
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
+	success := map[string]interface{}{"text": text, "url": baseURL, "jenkinsResponse": jenkinsResponse.StatusCode}
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"text": text, "url": baseURL, "jenkinsResponse": jenkinsResponse.StatusCode})
+	log.Println(success)
+
+	return c.JSON(http.StatusOK, success)
 }
 
 func TagExecCmd(repo, branch, commitHash string) error {
