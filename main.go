@@ -142,7 +142,7 @@ func CmdExec(cmdLine string) (string, error) {
 	out := new(strings.Builder)
 	var stderr bytes.Buffer
 
-	command := exec.Command("bash", "-c", cmdLine)
+	command := exec.Command("sh", "-c", cmdLine)
 	command.Stdout = out
 	command.Stderr = &stderr
 
