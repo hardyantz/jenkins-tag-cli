@@ -44,10 +44,7 @@ func build(c echo.Context) error {
 
 	log.Printf("Param accepted %s", text)
 
-	var tokenProject = map[string]string{
-		"hello-world": os.Getenv("TOKEN_HELLO_WORLD"),
-		"freestyle":   os.Getenv("TOKEN_FREESTYLE"),
-	}
+	var jenkinsToken = os.Getenv("TOKEN_PROJECT")
 
 	jenkinsJob := params[0]
 	repo := params[1]
@@ -59,7 +56,6 @@ func build(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	jenkinsToken := tokenProject[jenkinsJob]
 	jenkinsURL := os.Getenv("JENKINS_URL")
 
 	baseURL := fmt.Sprintf(
