@@ -17,6 +17,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const remoteOrigin = "origin"
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -26,7 +28,7 @@ func main() {
 	e := echo.New()
 	e.GET("/build", build)
 	e.GET("/hello-world", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status":"up & running"})
+		return c.JSON(http.StatusOK, map[string]string{"status": "up & running"})
 	})
 	e.Logger.Fatal(e.Start(":1323"))
 }
@@ -79,45 +81,56 @@ func build(c echo.Context) error {
 
 func TagExecCmd(repo, branch, commitHash string) error {
 	var err error
+
 	username := os.Getenv("GITHUB_USER")
 	ghToken := os.Getenv("GITHUB_TOKEN")
 	owner := os.Getenv("GITHUB_OWNER")
 
 	cmdGitInit := fmt.Sprintf("git init")
-	if err = CmdExec(cmdGitInit); err != nil {
-		return err
-	}
-	// init
-	cmdSetRmRemove := fmt.Sprintf("git remote rm origin")
-	if err = CmdExec(cmdSetRmRemove); err != nil {
+	if _, err = CmdExec(cmdGitInit); err != nil {
 		return err
 	}
 
-	cmdSetRemote := fmt.Sprintf("git remote add origin https://%s:%s@github.com/%s/%s.git", username, ghToken, owner, repo)
-	if err = CmdExec(cmdSetRemote); err != nil {
+	// get remote
+	cmdGetRemote := fmt.Sprintf("git remote -v | awk '{print $1;}' ")
+	strOutput, err := CmdExec(cmdGetRemote)
+	if err != nil && strOutput != remoteOrigin {
+		return err
+	}
+
+	// init
+	if strOutput == remoteOrigin {
+		cmdSetRmRemove := fmt.Sprintf("git remote rm %s", remoteOrigin)
+		if _, err = CmdExec(cmdSetRmRemove); err != nil {
+			return err
+		}
+	}
+
+	cmdSetRemote := fmt.Sprintf("git remote add %s https://%s:%s@github.com/%s/%s.git", remoteOrigin, username, ghToken, owner, repo)
+	if _, err = CmdExec(cmdSetRemote); err != nil {
 		return err
 	}
 
 	cmdFetch := fmt.Sprintf("git fetch --all")
-	if err = CmdExec(cmdFetch); err != nil {
-		_ = fmt.Sprintf("git remote rm origin")
+	if _, err = CmdExec(cmdFetch); err != nil {
+		_ = fmt.Sprintf("git remote rm %s", remoteOrigin)
 		return err
 	}
 
 	cmdSetTag := fmt.Sprintf("git tag -f %s %s", branch, commitHash)
-	if err = CmdExec(cmdSetTag); err != nil {
-		_ = fmt.Sprintf("git remote rm origin")
+	if _, err = CmdExec(cmdSetTag); err != nil {
+		_ = fmt.Sprintf("git remote rm %s", remoteOrigin)
 		return err
 	}
 
 	cmdPushTag := fmt.Sprintf("git push -f origin %s", branch)
-	if err = CmdExec(cmdPushTag); err != nil {
-		_ = fmt.Sprintf("git remote rm origin")
+	if _, err = CmdExec(cmdPushTag); err != nil {
+		_ = fmt.Sprintf("git remote rm %s", remoteOrigin)
 		return err
 	}
 
-	cmdRmRemote := fmt.Sprintf("git remote rm origin")
-	if err = CmdExec(cmdRmRemote); err != nil {
+	cmdRmRemote := fmt.Sprintf("git remote rm %s", remoteOrigin)
+	if _, err = CmdExec(cmdRmRemote); err != nil {
 		return err
 	}
 
@@ -125,20 +138,29 @@ func TagExecCmd(repo, branch, commitHash string) error {
 
 }
 
-func CmdExec(cmdLine string) error {
-	var out bytes.Buffer
+func CmdExec(cmdLine string) (string, error) {
+	out := new(strings.Builder)
 	var stderr bytes.Buffer
 
 	command := exec.Command("bash", "-c", cmdLine)
-	command.Stdout = &out
+	command.Stdout = out
 	command.Stderr = &stderr
 
 	err := command.Run()
 	if err != nil {
-		return fmt.Errorf("%s: %s", err, stderr.String())
+		return "", fmt.Errorf("%s: %s", err, stderr.String())
 	}
 
-	return nil
+	if out.String() != "" {
+		getOrigin := strings.Split(out.String(), "\n")
+		for _, v := range getOrigin {
+			if v == remoteOrigin {
+				return v, nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func CreateTagGo(token, branch, username, repo, commitHash string) (*github.Tag, error) {
